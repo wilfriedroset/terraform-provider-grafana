@@ -178,3 +178,31 @@ func (c *Client) UpdateTeamPreferences(id int64, preferences Preferences) error 
 
 	return c.request("PUT", path, nil, bytes.NewBuffer(data), nil)
 }
+
+func (c *Client) NewTeamPolicy(id int64, policyUID string, orgId int64) error {
+	path := fmt.Sprintf("/api/access-control/teams/%d/policies", id)
+	req := struct {
+		OrgId     int64  `json:"orgId"`
+		PolicyUID string `json:"policyUid"`
+	}{
+		OrgId:     orgId,
+		PolicyUID: policyUID,
+	}
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	err = c.request("POST", path, nil, bytes.NewBuffer(data), nil)
+
+	return err
+}
+
+func (c *Client) DeleteTeamPolicy(id int64, policyUID string) error {
+	path := fmt.Sprintf("/api/access-control/teams/%d/policies/%s", id, policyUID)
+
+	err := c.request("DELETE", path, nil, nil, nil)
+
+	return err
+}
