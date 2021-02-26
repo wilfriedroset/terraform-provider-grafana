@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
@@ -24,6 +25,12 @@ func ResourcePolicy() *schema.Resource {
 			"org_id": {
 				Type:     schema.TypeInt,
 				Required: true,
+				ForceNew: true,
+			},
+			"uid": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
 			},
 			"name": {
 				Type:     schema.TypeString,
@@ -51,15 +58,20 @@ func CreatePolicy(d *schema.ResourceData, meta interface{}) error {
 	orgId, _ := d.Get("org_id").(int)
 	policy := gapi.Policy{
 		OrgID:       int64(orgId),
+		UID:         d.Get("uid").(string),
 		Name:        d.Get("name").(string),
 		Description: d.Get("description").(string),
 		Permissions: perms,
 	}
-	uid, err := client.NewPolicy(policy)
+	p, err := client.NewPolicy(policy)
 	if err != nil {
 		return err
 	}
-	d.SetId(uid)
+	err = d.Set("uid", p.UID)
+	if err != nil {
+		return err
+	}
+	d.SetId(strconv.FormatInt(p.PolicyId, 10))
 	return nil
 }
 
@@ -80,7 +92,7 @@ func permissions(d *schema.ResourceData) []gapi.Permission {
 
 func ReadPolicy(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
-	uid := d.Id()
+	uid := d.Get("uid").(string)
 	p, err := client.GetPolicy(uid)
 
 	if err != nil && strings.HasPrefix(err.Error(), "status: 404") {
@@ -92,6 +104,10 @@ func ReadPolicy(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	err = d.Set("name", p.Name)
+	if err != nil {
+		return err
+	}
+	err = d.Set("uid", p.UID)
 	if err != nil {
 		return err
 	}
@@ -114,25 +130,27 @@ func ReadPolicy(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
+	d.SetId(strconv.FormatInt(p.PolicyId, 10))
 	return nil
 }
 
 func UpdatePolicy(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
-	uid := d.Id()
 
 	if d.HasChange("name") || d.HasChange("description") || d.HasChange("permissions") || d.HasChange("org_id") {
 		name := d.Get("name").(string)
 		description := d.Get("description").(string)
 		orgId, _ := d.Get("org_id").(int)
+		uid := d.Get("uid").(string)
 		perms := permissions(d)
 		policy := gapi.Policy{
 			OrgID:       int64(orgId),
+			UID:         uid,
 			Name:        name,
 			Description: description,
 			Permissions: perms,
 		}
-		err := client.UpdatePolicy(uid, policy)
+		err := client.UpdatePolicy(policy)
 		if err != nil {
 			return nil
 		}
@@ -143,14 +161,14 @@ func UpdatePolicy(d *schema.ResourceData, meta interface{}) error {
 
 func DeletePolicy(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
-	uid := d.Id()
+	uid := d.Get("uid").(string)
 	err := client.DeletePolicy(uid)
 	return err
 }
 
 func ExistsPolicy(d *schema.ResourceData, meta interface{}) (bool, error) {
 	client := meta.(*gapi.Client)
-	uid := d.Id()
+	uid := d.Get("uid").(string)
 	_, err := client.GetPolicy(uid)
 
 	if err != nil && strings.HasPrefix(err.Error(), "status: 404") {
