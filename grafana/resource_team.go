@@ -59,11 +59,11 @@ func ResourceTeam() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
-			"policies": {
+			"roles": {
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Schema{
-					Type: schema.TypeInt,
+					Type: schema.TypeString,
 				},
 			},
 		},
@@ -84,66 +84,9 @@ func CreateTeam(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-	//err = UpdatePolicies(d, meta)
+	err = UpdateRoles(d, meta)
 	return err
 }
-
-// WARNING: What follows is a coding crime. This needs to be completely rewritten
-//func UpdatePolicies(d *schema.ResourceData, meta interface{}) error {
-//	client := meta.(*gapi.Client)
-//	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
-//	sourcePolicies, err := client.GetTeamPolicies(teamID)
-//	if err != nil {
-//		return nil
-//	}
-//
-//	if !d.HasChange("policies") {
-//		return nil
-//	}
-//	sourcePolicyIds := make([]int64, len(sourcePolicies))
-//	statePolicies := d.Get("policies").([]interface{})
-//	statePolicyIds := make([]int64, len(statePolicies))
-//	for _, p := range sourcePolicies {
-//		sourcePolicyIds = append(sourcePolicyIds, p.PolicyId)
-//	}
-//	for _, p := range statePolicies {
-//		statePolicyIds = append(statePolicyIds, int64(p.(int)))
-//	}
-//
-//	for _, sp := range statePolicies {
-//		pID := int64(sp.(int))
-//		if contains(sourcePolicyIds, pID) {
-//			continue
-//		} else {
-//			err := client.NewTeamPolicy(teamID, pID)
-//			if err != nil {
-//				return err
-//			}
-//		}
-//	}
-//
-//	for _, sp := range sourcePolicyIds {
-//		if contains(statePolicyIds, sp) {
-//			continue
-//		} else {
-//			err := client.DeleteTeamPolicy(teamID, sp)
-//			if err != nil {
-//				return err
-//			}
-//		}
-//	}
-//
-//	return nil
-//}
-
-//func contains(arr []int64, e int64) bool {
-//	for _, a := range arr {
-//		if a == e {
-//			return true
-//		}
-//	}
-//	return false
-//}
 
 func ReadTeam(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
@@ -162,9 +105,9 @@ func ReadTeam(d *schema.ResourceData, meta interface{}) error {
 	if err := ReadMembers(d, meta); err != nil {
 		return err
 	}
-	//if err := ReadTeamPolicies(d, meta); err != nil {
-	//	return err
-	//}
+	if err := ReadTeamRoles(d, meta); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -179,10 +122,10 @@ func UpdateTeam(d *schema.ResourceData, meta interface{}) error {
 			return err
 		}
 	}
-	//err := UpdatePolicies(d, meta)
-	//if err != nil {
-	//	return err
-	//}
+	err := UpdateRoles(d, meta)
+	if err != nil {
+		return err
+	}
 	return UpdateMembers(d, meta)
 }
 
@@ -233,20 +176,20 @@ func ReadMembers(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-//func ReadTeamPolicies(d *schema.ResourceData, meta interface{}) error {
-//	client := meta.(*gapi.Client)
-//	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
-//	teamPolicies, err := client.GetTeamPolicies(teamID)
-//	if err != nil {
-//		return err
-//	}
-//	var policies []int64
-//	for _, tp := range teamPolicies {
-//		policies = append(policies, tp.PolicyId)
-//	}
-//
-//	return d.Set("policies", policies)
-//}
+func ReadTeamRoles(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*gapi.Client)
+	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
+	teamRoles, err := client.GetTeamRoles(teamID)
+	if err != nil {
+		return err
+	}
+	var roles []string
+	for _, tp := range teamRoles {
+		roles = append(roles, tp.UID)
+	}
+
+	return d.Set("roles", roles)
+}
 
 func UpdateMembers(d *schema.ResourceData, meta interface{}) error {
 	stateMembers, configMembers, err := collectMembers(d)
@@ -263,6 +206,18 @@ func UpdateMembers(d *schema.ResourceData, meta interface{}) error {
 	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
 	//now we can make the corresponding updates so current state matches config
 	return applyMemberChanges(meta, teamID, changes)
+}
+
+func UpdateRoles(d *schema.ResourceData, meta interface{}) error {
+	stateRoles, configRoles, err := collectRoles(d)
+	if err != nil {
+		return err
+	}
+	//compile the list of differences between current state and config
+	changes := roleChanges(stateRoles, configRoles)
+	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
+	//now we can make the corresponding updates so current state matches config
+	return applyRoleChanges(meta, teamID, changes)
 }
 
 func collectMembers(d *schema.ResourceData) (map[string]TeamMember, map[string]TeamMember, error) {
@@ -290,6 +245,31 @@ func collectMembers(d *schema.ResourceData) (map[string]TeamMember, map[string]T
 	return stateMembers, configMembers, nil
 }
 
+func collectRoles(d *schema.ResourceData) (map[string]string, map[string]string, error) {
+	stateRoles, configRoles := make(map[string]string), make(map[string]string)
+
+	// Get the lists of team members read in from Grafana state (old) and configured (new)
+	state, config := d.GetChange("roles")
+	for _, u := range state.([]interface{}) {
+		login := u.(string)
+		// Sanity check that a member isn't specified twice within a team
+		if _, ok := stateRoles[login]; ok {
+			return nil, nil, errors.New(fmt.Sprintf("Error: Team Role '%s' cannot be specified multiple times.", login))
+		}
+		stateRoles[login] = login
+	}
+	for _, u := range config.([]interface{}) {
+		login := u.(string)
+		// Sanity check that a member isn't specified twice within a team
+		if _, ok := configRoles[login]; ok {
+			return nil, nil, errors.New(fmt.Sprintf("Error: Team Role '%s' cannot be specified multiple times.", login))
+		}
+		configRoles[login] = login
+	}
+
+	return stateRoles, configRoles, nil
+}
+
 func memberChanges(stateMembers, configMembers map[string]TeamMember) []MemberChange {
 	var changes []MemberChange
 	for _, user := range configMembers {
@@ -305,6 +285,26 @@ func memberChanges(stateMembers, configMembers map[string]TeamMember) []MemberCh
 			// Member exists in Grafana's state for the team, but isn't
 			// present in the team configuration, should be removed.
 			changes = append(changes, MemberChange{RemoveMember, user})
+		}
+	}
+	return changes
+}
+
+func roleChanges(stateRoles, configRoles map[string]string) []RoleChange {
+	var changes []RoleChange
+	for _, role := range configRoles {
+		_, ok := stateRoles[role]
+		if !ok {
+			// Role doesn't exist in Grafana's state for the team, should be added.
+			changes = append(changes, RoleChange{AddRole, role})
+			continue
+		}
+	}
+	for _, role := range stateRoles {
+		if _, ok := configRoles[role]; !ok {
+			// Role exists in Grafana's state for the team, but isn't
+			// present in the team configuration, should be removed.
+			changes = append(changes, RoleChange{RemoveRole, role})
 		}
 	}
 	return changes
@@ -347,6 +347,24 @@ func applyMemberChanges(meta interface{}, teamId int64, changes []MemberChange) 
 		}
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func applyRoleChanges(meta interface{}, teamId int64, changes []RoleChange) error {
+	var err error
+	client := meta.(*gapi.Client)
+	for _, change := range changes {
+		r := change.UID
+		switch change.Type {
+		case AddRole:
+			err = client.NewTeamRole(teamId, r)
+		case RemoveRole:
+			err = client.DeleteTeamRole(teamId, r)
+		}
+		if err != nil {
+			return errors.New(fmt.Sprintf("Error with %s %v", r, err))
 		}
 	}
 	return nil

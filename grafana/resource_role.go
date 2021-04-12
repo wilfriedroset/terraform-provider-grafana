@@ -10,6 +10,18 @@ import (
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
+type RoleChange struct {
+	Type ChangeRoleType
+	UID  string
+}
+
+type ChangeRoleType int8
+
+const (
+	AddRole ChangeRoleType = iota
+	RemoveRole
+)
+
 func ResourceRole() *schema.Resource {
 	return &schema.Resource{
 		Create: CreateRole,
@@ -50,11 +62,11 @@ func ResourceRole() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"action": {
-							Type: schema.TypeString,
+							Type:     schema.TypeString,
 							Required: true,
 						},
 						"scope": {
-							Type: schema.TypeString,
+							Type:     schema.TypeString,
 							Optional: true,
 						},
 					},
@@ -101,7 +113,7 @@ func permissions(d *schema.ResourceData) []gapi.Permission {
 		permission := permission.(map[string]interface{})
 		perms = append(perms, gapi.Permission{
 			Action: permission["action"].(string),
-			Scope: permission["scope"].(string),
+			Scope:  permission["scope"].(string),
 		})
 	}
 
