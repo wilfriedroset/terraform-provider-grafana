@@ -84,66 +84,66 @@ func CreateTeam(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = UpdatePolicies(d, meta)
+	//err = UpdatePolicies(d, meta)
 	return err
 }
 
 // WARNING: What follows is a coding crime. This needs to be completely rewritten
-func UpdatePolicies(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*gapi.Client)
-	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
-	sourcePolicies, err := client.GetTeamPolicies(teamID)
-	if err != nil {
-		return nil
-	}
+//func UpdatePolicies(d *schema.ResourceData, meta interface{}) error {
+//	client := meta.(*gapi.Client)
+//	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
+//	sourcePolicies, err := client.GetTeamPolicies(teamID)
+//	if err != nil {
+//		return nil
+//	}
+//
+//	if !d.HasChange("policies") {
+//		return nil
+//	}
+//	sourcePolicyIds := make([]int64, len(sourcePolicies))
+//	statePolicies := d.Get("policies").([]interface{})
+//	statePolicyIds := make([]int64, len(statePolicies))
+//	for _, p := range sourcePolicies {
+//		sourcePolicyIds = append(sourcePolicyIds, p.PolicyId)
+//	}
+//	for _, p := range statePolicies {
+//		statePolicyIds = append(statePolicyIds, int64(p.(int)))
+//	}
+//
+//	for _, sp := range statePolicies {
+//		pID := int64(sp.(int))
+//		if contains(sourcePolicyIds, pID) {
+//			continue
+//		} else {
+//			err := client.NewTeamPolicy(teamID, pID)
+//			if err != nil {
+//				return err
+//			}
+//		}
+//	}
+//
+//	for _, sp := range sourcePolicyIds {
+//		if contains(statePolicyIds, sp) {
+//			continue
+//		} else {
+//			err := client.DeleteTeamPolicy(teamID, sp)
+//			if err != nil {
+//				return err
+//			}
+//		}
+//	}
+//
+//	return nil
+//}
 
-	if !d.HasChange("policies") {
-		return nil
-	}
-	sourcePolicyIds := make([]int64, len(sourcePolicies))
-	statePolicies := d.Get("policies").([]interface{})
-	statePolicyIds := make([]int64, len(statePolicies))
-	for _, p := range sourcePolicies {
-		sourcePolicyIds = append(sourcePolicyIds, p.PolicyId)
-	}
-	for _, p := range statePolicies {
-		statePolicyIds = append(statePolicyIds, int64(p.(int)))
-	}
-
-	for _, sp := range statePolicies {
-		pID := int64(sp.(int))
-		if contains(sourcePolicyIds, pID) {
-			continue
-		} else {
-			err := client.NewTeamPolicy(teamID, pID)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	for _, sp := range sourcePolicyIds {
-		if contains(statePolicyIds, sp) {
-			continue
-		} else {
-			err := client.DeleteTeamPolicy(teamID, sp)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func contains(arr []int64, e int64) bool {
-	for _, a := range arr {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
+//func contains(arr []int64, e int64) bool {
+//	for _, a := range arr {
+//		if a == e {
+//			return true
+//		}
+//	}
+//	return false
+//}
 
 func ReadTeam(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
@@ -162,9 +162,9 @@ func ReadTeam(d *schema.ResourceData, meta interface{}) error {
 	if err := ReadMembers(d, meta); err != nil {
 		return err
 	}
-	if err := ReadTeamPolicies(d, meta); err != nil {
-		return err
-	}
+	//if err := ReadTeamPolicies(d, meta); err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -179,10 +179,10 @@ func UpdateTeam(d *schema.ResourceData, meta interface{}) error {
 			return err
 		}
 	}
-	err := UpdatePolicies(d, meta)
-	if err != nil {
-		return err
-	}
+	//err := UpdatePolicies(d, meta)
+	//if err != nil {
+	//	return err
+	//}
 	return UpdateMembers(d, meta)
 }
 
@@ -233,20 +233,20 @@ func ReadMembers(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func ReadTeamPolicies(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*gapi.Client)
-	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
-	teamPolicies, err := client.GetTeamPolicies(teamID)
-	if err != nil {
-		return err
-	}
-	var policies []int64
-	for _, tp := range teamPolicies {
-		policies = append(policies, tp.PolicyId)
-	}
-
-	return d.Set("policies", policies)
-}
+//func ReadTeamPolicies(d *schema.ResourceData, meta interface{}) error {
+//	client := meta.(*gapi.Client)
+//	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
+//	teamPolicies, err := client.GetTeamPolicies(teamID)
+//	if err != nil {
+//		return err
+//	}
+//	var policies []int64
+//	for _, tp := range teamPolicies {
+//		policies = append(policies, tp.PolicyId)
+//	}
+//
+//	return d.Set("policies", policies)
+//}
 
 func UpdateMembers(d *schema.ResourceData, meta interface{}) error {
 	stateMembers, configMembers, err := collectMembers(d)

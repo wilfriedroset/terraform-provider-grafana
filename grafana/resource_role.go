@@ -4,22 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
-func ResourcePolicy() *schema.Resource {
+func ResourceRole() *schema.Resource {
 	return &schema.Resource{
-		Create: CreatePolicy,
-		Update: UpdatePolicy,
-		Read:   ReadPolicy,
-		Delete: DeletePolicy,
-		Exists: ExistsPolicy,
+		Create: CreateRole,
+		Update: UpdateRole,
+		Read:   ReadRole,
+		Delete: DeleteRole,
+		Exists: ExistsRole,
 		Importer: &schema.ResourceImporter{
-			State: ImportPolicy,
+			State: ImportRole,
 		},
 		Schema: map[string]*schema.Schema{
 			"org_id": {
@@ -31,6 +30,11 @@ func ResourcePolicy() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 				Optional: true,
+				ForceNew: true,
+			},
+			"version": {
+				Type:     schema.TypeInt,
+				Required: true,
 			},
 			"name": {
 				Type:     schema.TypeString,
@@ -51,27 +55,29 @@ func ResourcePolicy() *schema.Resource {
 	}
 }
 
-func CreatePolicy(d *schema.ResourceData, meta interface{}) error {
+func CreateRole(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
 
 	perms := permissions(d)
 	orgId, _ := d.Get("org_id").(int)
-	policy := gapi.Policy{
+	version, _ := d.Get("version").(int)
+	role := gapi.Role{
 		OrgID:       int64(orgId),
 		UID:         d.Get("uid").(string),
 		Name:        d.Get("name").(string),
 		Description: d.Get("description").(string),
+		Version:     int64(version),
 		Permissions: perms,
 	}
-	p, err := client.NewPolicy(policy)
+	r, err := client.NewRole(role)
 	if err != nil {
 		return err
 	}
-	err = d.Set("uid", p.UID)
+	err = d.Set("uid", r.UID)
 	if err != nil {
 		return err
 	}
-	d.SetId(strconv.FormatInt(p.PolicyId, 10))
+	d.SetId(r.UID)
 	return nil
 }
 
@@ -82,43 +88,43 @@ func permissions(d *schema.ResourceData) []gapi.Permission {
 	for _, p := range rp {
 		ps := p.(map[string]interface{})
 		perms = append(perms, gapi.Permission{
-			Permission: ps["Permission"].(string),
-			Scope:      ps["Scope"].(string),
+			Action: ps["Action"].(string),
+			Scope:  ps["Scope"].(string),
 		})
 	}
 
 	return perms
 }
 
-func ReadPolicy(d *schema.ResourceData, meta interface{}) error {
+func ReadRole(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
-	uid := d.Get("uid").(string)
-	p, err := client.GetPolicy(uid)
+	uid := d.Id()
+	r, err := client.GetRole(uid)
 
 	if err != nil && strings.HasPrefix(err.Error(), "status: 404") {
-		log.Printf("[WARN] removing policy %s from state because it no longer exists in grafana", d.Id())
+		log.Printf("[WARN] removing role %s from state because it no longer exists in grafana", d.Id())
 		d.SetId("")
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	err = d.Set("name", p.Name)
+	err = d.Set("name", r.Name)
 	if err != nil {
 		return err
 	}
-	err = d.Set("uid", p.UID)
+	err = d.Set("uid", r.UID)
 	if err != nil {
 		return err
 	}
-	err = d.Set("description", p.Description)
+	err = d.Set("description", r.Description)
 	if err != nil {
 		return err
 	}
 	perms := make([]interface{}, 0)
-	for _, perm := range p.Permissions {
+	for _, perm := range r.Permissions {
 		permMap := make(map[string]interface{})
-		permMap["Permission"] = perm.Permission
+		permMap["Action"] = perm.Action
 		permMap["Scope"] = perm.Scope
 		perms = append(perms, permMap)
 	}
@@ -126,50 +132,52 @@ func ReadPolicy(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = d.Set("org_id", p.OrgID)
+	err = d.Set("org_id", r.OrgID)
 	if err != nil {
 		return err
 	}
-	d.SetId(strconv.FormatInt(p.PolicyId, 10))
+	d.SetId(r.UID)
 	return nil
 }
 
-func UpdatePolicy(d *schema.ResourceData, meta interface{}) error {
+func UpdateRole(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
 
-	if d.HasChange("name") || d.HasChange("description") || d.HasChange("permissions") || d.HasChange("org_id") {
+	if d.HasChange("version") || d.HasChange("name") || d.HasChange("description") || d.HasChange("permissions") || d.HasChange("org_id") {
 		name := d.Get("name").(string)
+		version, _ := d.Get("version").(int)
 		description := d.Get("description").(string)
 		orgId, _ := d.Get("org_id").(int)
-		uid := d.Get("uid").(string)
+		uid := d.Id()
 		perms := permissions(d)
-		policy := gapi.Policy{
+		policy := gapi.Role{
 			OrgID:       int64(orgId),
 			UID:         uid,
 			Name:        name,
 			Description: description,
+			Version:     int64(version),
 			Permissions: perms,
 		}
-		err := client.UpdatePolicy(policy)
+		err := client.UpdateRole(policy)
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 
 	return nil
 }
 
-func DeletePolicy(d *schema.ResourceData, meta interface{}) error {
+func DeleteRole(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
-	uid := d.Get("uid").(string)
-	err := client.DeletePolicy(uid)
+	uid := d.Id()
+	err := client.DeleteRole(uid)
 	return err
 }
 
-func ExistsPolicy(d *schema.ResourceData, meta interface{}) (bool, error) {
+func ExistsRole(d *schema.ResourceData, meta interface{}) (bool, error) {
 	client := meta.(*gapi.Client)
-	uid := d.Get("uid").(string)
-	_, err := client.GetPolicy(uid)
+	uid := d.Id()
+	_, err := client.GetRole(uid)
 
 	if err != nil && strings.HasPrefix(err.Error(), "status: 404") {
 		return false, nil
@@ -181,12 +189,12 @@ func ExistsPolicy(d *schema.ResourceData, meta interface{}) (bool, error) {
 	return true, err
 }
 
-func ImportPolicy(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	exists, err := ExistsPolicy(d, meta)
+func ImportRole(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+	exists, err := ExistsRole(d, meta)
 	if err != nil || !exists {
-		return nil, errors.New(fmt.Sprintf("Error: Unable to import Grafana Policy: %s.", err))
+		return nil, errors.New(fmt.Sprintf("Error: Unable to import Grafana Role: %s.", err))
 	}
-	err = ReadPolicy(d, meta)
+	err = ReadRole(d, meta)
 	if err != nil {
 		return nil, err
 	}
