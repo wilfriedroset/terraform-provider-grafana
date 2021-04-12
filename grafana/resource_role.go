@@ -45,10 +45,19 @@ func ResourceRole() *schema.Resource {
 				Optional: true,
 			},
 			"permissions": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeSet,
 				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeMap,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"action": {
+							Type: schema.TypeString,
+							Required: true,
+						},
+						"scope": {
+							Type: schema.TypeString,
+							Optional: true,
+						},
+					},
 				},
 			},
 		},
@@ -82,14 +91,17 @@ func CreateRole(d *schema.ResourceData, meta interface{}) error {
 }
 
 func permissions(d *schema.ResourceData) []gapi.Permission {
-	rp := d.Get("permissions").([]interface{})
+	v, ok := d.GetOk("permissions")
+	if !ok {
+		return nil
+	}
 
 	perms := make([]gapi.Permission, 0)
-	for _, p := range rp {
-		ps := p.(map[string]interface{})
+	for _, permission := range v.(*schema.Set).List() {
+		permission := permission.(map[string]interface{})
 		perms = append(perms, gapi.Permission{
-			Action: ps["Action"].(string),
-			Scope:  ps["Scope"].(string),
+			Action: permission["action"].(string),
+			Scope: permission["scope"].(string),
 		})
 	}
 
@@ -124,8 +136,8 @@ func ReadRole(d *schema.ResourceData, meta interface{}) error {
 	perms := make([]interface{}, 0)
 	for _, perm := range r.Permissions {
 		permMap := make(map[string]interface{})
-		permMap["Action"] = perm.Action
-		permMap["Scope"] = perm.Scope
+		permMap["action"] = perm.Action
+		permMap["scope"] = perm.Scope
 		perms = append(perms, permMap)
 	}
 	err = d.Set("permissions", perms)
