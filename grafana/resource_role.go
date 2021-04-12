@@ -10,18 +10,6 @@ import (
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
-type RoleChange struct {
-	Type ChangeRoleType
-	UID  string
-}
-
-type ChangeRoleType int8
-
-const (
-	AddRole ChangeRoleType = iota
-	RemoveRole
-)
-
 func ResourceRole() *schema.Resource {
 	return &schema.Resource{
 		Create: CreateRole,
@@ -223,4 +211,56 @@ func ImportRole(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceDat
 		return nil, err
 	}
 	return []*schema.ResourceData{d}, nil
+}
+
+type RoleChange struct {
+	Type ChangeRoleType
+	UID  string
+}
+
+type ChangeRoleType int8
+
+const (
+	AddRole ChangeRoleType = iota
+	RemoveRole
+)
+
+// For supporting role assignments to teams and users
+func roleChanges(stateRoles, configRoles map[string]string) []RoleChange {
+	var changes []RoleChange
+	for _, role := range configRoles {
+		_, ok := stateRoles[role]
+		if !ok {
+			changes = append(changes, RoleChange{AddRole, role})
+			continue
+		}
+	}
+	for _, role := range stateRoles {
+		if _, ok := configRoles[role]; !ok {
+			changes = append(changes, RoleChange{RemoveRole, role})
+		}
+	}
+	return changes
+}
+
+func collectRoles(d *schema.ResourceData) (map[string]string, map[string]string, error) {
+	stateRoles, configRoles := make(map[string]string), make(map[string]string)
+
+	state, config := d.GetChange("roles")
+	for _, r := range state.([]interface{}) {
+		uid := r.(string)
+		if _, ok := stateRoles[uid]; ok {
+			return nil, nil, errors.New(fmt.Sprintf("Error: Role '%s' cannot be specified multiple times.", uid))
+		}
+		stateRoles[uid] = uid
+	}
+	for _, r := range config.([]interface{}) {
+		uid := r.(string)
+		if _, ok := configRoles[uid]; ok {
+			return nil, nil, errors.New(fmt.Sprintf("Error: Role '%s' cannot be specified multiple times.", uid))
+		}
+		configRoles[uid] = uid
+	}
+
+	return stateRoles, configRoles, nil
 }

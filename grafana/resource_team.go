@@ -84,7 +84,7 @@ func CreateTeam(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = UpdateRoles(d, meta)
+	err = UpdateUserRoles(d, meta)
 	return err
 }
 
@@ -122,7 +122,7 @@ func UpdateTeam(d *schema.ResourceData, meta interface{}) error {
 			return err
 		}
 	}
-	err := UpdateRoles(d, meta)
+	err := UpdateTeamRoles(d, meta)
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func UpdateMembers(d *schema.ResourceData, meta interface{}) error {
 	return applyMemberChanges(meta, teamID, changes)
 }
 
-func UpdateRoles(d *schema.ResourceData, meta interface{}) error {
+func UpdateTeamRoles(d *schema.ResourceData, meta interface{}) error {
 	stateRoles, configRoles, err := collectRoles(d)
 	if err != nil {
 		return err
@@ -217,7 +217,7 @@ func UpdateRoles(d *schema.ResourceData, meta interface{}) error {
 	changes := roleChanges(stateRoles, configRoles)
 	teamID, _ := strconv.ParseInt(d.Id(), 10, 64)
 	//now we can make the corresponding updates so current state matches config
-	return applyRoleChanges(meta, teamID, changes)
+	return applyRoleChangesToTeam(meta, teamID, changes)
 }
 
 func collectMembers(d *schema.ResourceData) (map[string]TeamMember, map[string]TeamMember, error) {
@@ -245,31 +245,6 @@ func collectMembers(d *schema.ResourceData) (map[string]TeamMember, map[string]T
 	return stateMembers, configMembers, nil
 }
 
-func collectRoles(d *schema.ResourceData) (map[string]string, map[string]string, error) {
-	stateRoles, configRoles := make(map[string]string), make(map[string]string)
-
-	// Get the lists of team members read in from Grafana state (old) and configured (new)
-	state, config := d.GetChange("roles")
-	for _, u := range state.([]interface{}) {
-		login := u.(string)
-		// Sanity check that a member isn't specified twice within a team
-		if _, ok := stateRoles[login]; ok {
-			return nil, nil, errors.New(fmt.Sprintf("Error: Team Role '%s' cannot be specified multiple times.", login))
-		}
-		stateRoles[login] = login
-	}
-	for _, u := range config.([]interface{}) {
-		login := u.(string)
-		// Sanity check that a member isn't specified twice within a team
-		if _, ok := configRoles[login]; ok {
-			return nil, nil, errors.New(fmt.Sprintf("Error: Team Role '%s' cannot be specified multiple times.", login))
-		}
-		configRoles[login] = login
-	}
-
-	return stateRoles, configRoles, nil
-}
-
 func memberChanges(stateMembers, configMembers map[string]TeamMember) []MemberChange {
 	var changes []MemberChange
 	for _, user := range configMembers {
@@ -285,26 +260,6 @@ func memberChanges(stateMembers, configMembers map[string]TeamMember) []MemberCh
 			// Member exists in Grafana's state for the team, but isn't
 			// present in the team configuration, should be removed.
 			changes = append(changes, MemberChange{RemoveMember, user})
-		}
-	}
-	return changes
-}
-
-func roleChanges(stateRoles, configRoles map[string]string) []RoleChange {
-	var changes []RoleChange
-	for _, role := range configRoles {
-		_, ok := stateRoles[role]
-		if !ok {
-			// Role doesn't exist in Grafana's state for the team, should be added.
-			changes = append(changes, RoleChange{AddRole, role})
-			continue
-		}
-	}
-	for _, role := range stateRoles {
-		if _, ok := configRoles[role]; !ok {
-			// Role exists in Grafana's state for the team, but isn't
-			// present in the team configuration, should be removed.
-			changes = append(changes, RoleChange{RemoveRole, role})
 		}
 	}
 	return changes
@@ -352,7 +307,7 @@ func applyMemberChanges(meta interface{}, teamId int64, changes []MemberChange) 
 	return nil
 }
 
-func applyRoleChanges(meta interface{}, teamId int64, changes []RoleChange) error {
+func applyRoleChangesToTeam(meta interface{}, teamId int64, changes []RoleChange) error {
 	var err error
 	client := meta.(*gapi.Client)
 	for _, change := range changes {
