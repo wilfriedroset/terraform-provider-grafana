@@ -89,6 +89,45 @@ func TestAccTeam_Members(t *testing.T) {
 	})
 }
 
+func TestAccTeam_Roles(t *testing.T) {
+	var team gapi.Team
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccTeamCheckDestroy(&team),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccTeamConfig_roleAdd,
+				Check: resource.ComposeTestCheckFunc(
+					testAccTeamCheckExists("grafana_team.test", &team),
+					resource.TestCheckResourceAttr(
+						"grafana_team.test", "name", "terraform-acc-test",
+					),
+					resource.TestCheckResourceAttr(
+						"grafana_team.test", "roles.#", "1",
+					),
+					resource.TestCheckResourceAttr(
+						"grafana_team.test", "roles.0", "exampleuid",
+					),
+				),
+			},
+			{
+				Config: testAccTeamConfig_roleRemove,
+				Check: resource.ComposeTestCheckFunc(
+					testAccTeamCheckExists("grafana_team.test", &team),
+					resource.TestCheckResourceAttr(
+						"grafana_team.test", "name", "terraform-acc-test",
+					),
+					resource.TestCheckResourceAttr(
+						"grafana_team.test", "roles.#", "0",
+					),
+				),
+			},
+		},
+	})
+}
+
 func testAccTeamCheckExists(rn string, a *gapi.Team) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[rn]
@@ -154,5 +193,29 @@ resource "grafana_team" "test" {
   name    = "terraform-acc-test"
   email   = "teamEmail@example.com"
   members = [ ]
+}
+`
+const testAccTeamConfig_roleAdd = `
+resource "grafana_role" "example_role_team" {
+  version     = 1
+  uid         = "testteamexampleuid"
+  name        = "grafana:test:team:roles:role_d"
+  description = "Example role"
+}
+
+resource "grafana_team" "test" {
+  name    = "terraform-acc-test"
+  email   = "teamEmail@example.com"
+  roles = [
+    "testteamexampleuid",
+  ]
+}
+`
+
+const testAccTeamConfig_roleRemove = `
+resource "grafana_team" "test" {
+  name    = "terraform-acc-test"
+  email   = "teamEmail@example.com"
+  roles = [ ]
 }
 `

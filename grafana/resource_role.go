@@ -63,7 +63,7 @@ func CreateRole(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
 
 	perms := permissions(d)
-	version, _ := d.Get("version").(int)
+	version := d.Get("version").(int)
 	role := gapi.Role{
 		UID:         d.Get("uid").(string),
 		Name:        d.Get("name").(string),
@@ -111,6 +111,10 @@ func ReadRole(d *schema.ResourceData, meta interface{}) error {
 		d.SetId("")
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+	err = d.Set("version", r.Version)
 	if err != nil {
 		return err
 	}

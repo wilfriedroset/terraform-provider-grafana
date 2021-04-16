@@ -65,6 +65,39 @@ func TestAccUser_basic(t *testing.T) {
 	})
 }
 
+func TestAccUser_Roles(t *testing.T) {
+	var user gapi.User
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccUserCheckDestroy(&user),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserConfig_roleAdd,
+				Check: resource.ComposeTestCheckFunc(
+					testAccUserCheckExists("grafana_user.test", &user),
+					resource.TestCheckResourceAttr(
+						"grafana_user.test", "roles.#", "1",
+					),
+					resource.TestCheckResourceAttr(
+						"grafana_user.test", "roles.0", "exampleuid",
+					),
+				),
+			},
+			{
+				Config: testAccUserConfig_roleRemove,
+				Check: resource.ComposeTestCheckFunc(
+					testAccUserCheckExists("grafana_user.test", &user),
+					resource.TestCheckResourceAttr(
+						"grafana_user.test", "roles.#", "0",
+					),
+				),
+			},
+		},
+	})
+}
+
 func testAccUserCheckExists(rn string, a *gapi.User) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[rn]
@@ -117,5 +150,43 @@ resource "grafana_user" "test" {
   login    = "ttu"
   password = "zyx987"
   is_admin = true
+}
+`
+
+const testAccUserConfig_roleAdd = `
+resource "grafana_role" "example_role_user" {
+  version     = 1
+  uid         = "testuserexampleuid"
+  name        = "grafana:test:user:roles:role_d"
+  description = "Example role"
+}
+
+resource "grafana_user" "test" {
+  email    = "terraform-test-update@localhost"
+  name     = "Terraform Test Update"
+  login    = "ttu"
+  password = "zyx987"
+  is_admin = true
+  roles = [
+    "testuserexampleuid",
+  ]
+}
+`
+
+const testAccUserConfig_roleRemove = `
+resource "grafana_role" "example_role_user" {
+  version     = 1
+  uid         = "testuserexampleuid"
+  name        = "grafana:test:user:roles:role_d"
+  description = "Example role"
+}
+
+resource "grafana_user" "test" {
+  email    = "terraform-test-update@localhost"
+  name     = "Terraform Test Update"
+  login    = "ttu"
+  password = "zyx987"
+  is_admin = true
+  roles = [ ]
 }
 `
