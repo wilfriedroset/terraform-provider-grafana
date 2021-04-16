@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	
+
 	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
