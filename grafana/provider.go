@@ -75,6 +75,7 @@ func Provider() terraform.ResourceProvider {
 			"grafana_team_preferences":     ResourceTeamPreferences(),
 			"grafana_user":                 ResourceUser(),
 			"grafana_role":                 ResourceRole(),
+			"grafana_builtin_role":         ResourceBuiltInRole(),
 		},
 
 		ConfigureFunc: providerConfigure,

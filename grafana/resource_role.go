@@ -21,11 +21,6 @@ func ResourceRole() *schema.Resource {
 			State: ImportRole,
 		},
 		Schema: map[string]*schema.Schema{
-			"org_id": {
-				Type:     schema.TypeInt,
-				Required: true,
-				ForceNew: true,
-			},
 			"uid": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -68,10 +63,8 @@ func CreateRole(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
 
 	perms := permissions(d)
-	orgId, _ := d.Get("org_id").(int)
 	version, _ := d.Get("version").(int)
 	role := gapi.Role{
-		OrgID:       int64(orgId),
 		UID:         d.Get("uid").(string),
 		Name:        d.Get("name").(string),
 		Description: d.Get("description").(string),
@@ -144,10 +137,6 @@ func ReadRole(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = d.Set("org_id", r.OrgID)
-	if err != nil {
-		return err
-	}
 	d.SetId(r.UID)
 	return nil
 }
@@ -155,15 +144,13 @@ func ReadRole(d *schema.ResourceData, meta interface{}) error {
 func UpdateRole(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*gapi.Client)
 
-	if d.HasChange("version") || d.HasChange("name") || d.HasChange("description") || d.HasChange("permissions") || d.HasChange("org_id") {
+	if d.HasChange("version") || d.HasChange("name") || d.HasChange("description") || d.HasChange("permissions") {
 		name := d.Get("name").(string)
 		version, _ := d.Get("version").(int)
 		description := d.Get("description").(string)
-		orgId, _ := d.Get("org_id").(int)
 		uid := d.Id()
 		perms := permissions(d)
 		policy := gapi.Role{
-			OrgID:       int64(orgId),
 			UID:         uid,
 			Name:        name,
 			Description: description,
@@ -226,17 +213,15 @@ const (
 )
 
 // For supporting role assignments to teams and users
-func roleChanges(stateRoles, configRoles map[string]string) []RoleChange {
+func roleChanges(rolesInState, rolesInConfig map[string]string) []RoleChange {
 	var changes []RoleChange
-	for _, role := range configRoles {
-		_, ok := stateRoles[role]
-		if !ok {
+	for _, role := range rolesInConfig {
+		if _, ok := rolesInState[role]; !ok {
 			changes = append(changes, RoleChange{AddRole, role})
-			continue
 		}
 	}
-	for _, role := range stateRoles {
-		if _, ok := configRoles[role]; !ok {
+	for _, role := range rolesInState {
+		if _, ok := rolesInConfig[role]; !ok {
 			changes = append(changes, RoleChange{RemoveRole, role})
 		}
 	}
@@ -244,23 +229,27 @@ func roleChanges(stateRoles, configRoles map[string]string) []RoleChange {
 }
 
 func collectRoles(d *schema.ResourceData) (map[string]string, map[string]string, error) {
-	stateRoles, configRoles := make(map[string]string), make(map[string]string)
+	rolesInState, rolesInConfig := make(map[string]string), make(map[string]string)
+
+	errFn := func(uid string) error {
+		return errors.New(fmt.Sprintf("Error: Role '%s' cannot be specified multiple times.", uid))
+	}
 
 	state, config := d.GetChange("roles")
 	for _, r := range state.([]interface{}) {
 		uid := r.(string)
-		if _, ok := stateRoles[uid]; ok {
-			return nil, nil, errors.New(fmt.Sprintf("Error: Role '%s' cannot be specified multiple times.", uid))
+		if _, ok := rolesInState[uid]; ok {
+			return nil, nil, errFn(uid)
 		}
-		stateRoles[uid] = uid
+		rolesInState[uid] = uid
 	}
 	for _, r := range config.([]interface{}) {
 		uid := r.(string)
-		if _, ok := configRoles[uid]; ok {
-			return nil, nil, errors.New(fmt.Sprintf("Error: Role '%s' cannot be specified multiple times.", uid))
+		if _, ok := rolesInConfig[uid]; ok {
+			return nil, nil, errFn(uid)
 		}
-		configRoles[uid] = uid
+		rolesInConfig[uid] = uid
 	}
 
-	return stateRoles, configRoles, nil
+	return rolesInState, rolesInConfig, nil
 }
