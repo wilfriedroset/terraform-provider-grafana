@@ -46,6 +46,11 @@ func TestAccTeam_basic(t *testing.T) {
 					),
 				),
 			},
+			{
+				ResourceName:      "grafana_team.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }

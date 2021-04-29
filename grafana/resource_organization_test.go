@@ -40,6 +40,11 @@ func TestAccOrganization_basic(t *testing.T) {
 					),
 				),
 			},
+			{
+				ResourceName:      "grafana_organization.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }
