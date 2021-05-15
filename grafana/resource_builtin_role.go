@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform/helper/validation"
 )
 
-func ResourceBuiltInRole() *schema.Resource {
+func ResourceBuiltInRoleAssignments() *schema.Resource {
 	return &schema.Resource{
 		Create: CreateBuiltInRole,
 		Update: UpdateBuiltInRole,
@@ -21,7 +21,7 @@ func ResourceBuiltInRole() *schema.Resource {
 			State: ImportBuiltInRole,
 		},
 		Schema: map[string]*schema.Schema{
-			"name": {
+			"built_in_role": {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
@@ -30,8 +30,17 @@ func ResourceBuiltInRole() *schema.Resource {
 			"roles": {
 				Type:     schema.TypeList,
 				Required: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"uid": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"scope": {
+							Type:     schema.TypeBool,
+							Optional: true,
+						},
+					},
 				},
 			},
 		},

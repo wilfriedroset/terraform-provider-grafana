@@ -179,14 +179,14 @@ func (c *Client) UpdateTeamPreferences(id int64, preferences Preferences) error 
 	return c.request("PUT", path, nil, bytes.NewBuffer(data), nil)
 }
 
-func (c *Client) NewTeamPolicy(id int64, policyUID string, orgId int64) error {
-	path := fmt.Sprintf("/api/access-control/teams/%d/policies", id)
+// NewTeamRole assigns the role to the team. Available only in Grafana Enterprise.
+func (c *Client) NewTeamRole(id int64, roleUID string) error {
+	path := fmt.Sprintf("/api/access-control/teams/%d/roles", id)
 	req := struct {
-		OrgId     int64  `json:"orgId"`
-		PolicyUID string `json:"policyUid"`
+		RoleUID string `json:"roleUid"`
+
 	}{
-		OrgId:     orgId,
-		PolicyUID: policyUID,
+		RoleUID: roleUID,
 	}
 
 	data, err := json.Marshal(req)
@@ -199,10 +199,25 @@ func (c *Client) NewTeamPolicy(id int64, policyUID string, orgId int64) error {
 	return err
 }
 
-func (c *Client) DeleteTeamPolicy(id int64, policyUID string) error {
-	path := fmt.Sprintf("/api/access-control/teams/%d/policies/%s", id, policyUID)
+// DeleteTeamRole removes role assignment from the team. Available only in Grafana Enterprise.
+func (c *Client) DeleteTeamRole(id int64, roleUID string) error {
+	path := fmt.Sprintf("/api/access-control/teams/%d/roles/%s", id, roleUID)
 
 	err := c.request("DELETE", path, nil, nil, nil)
 
 	return err
+}
+
+// GetTeamRoles gets roles assigned to the team. Available only in Grafana Enterprise.
+func (c *Client) GetTeamRoles(id int64) ([]*Role, error) {
+	roles := make([]*Role, 0)
+
+	path := fmt.Sprintf("/api/access-control/teams/%d/roles", id)
+
+	err := c.request("GET", path, nil, nil, &roles)
+	if err != nil {
+		return nil, err
+	}
+
+	return roles, nil
 }
