@@ -84,7 +84,7 @@ github.com/golang/protobuf/ptypes/timestamp
 github.com/google/uuid
 # github.com/googleapis/gax-go/v2 v2.0.5
 github.com/googleapis/gax-go/v2
-# github.com/grafana/grafana-api-golang-client v0.0.0-20210204123314-0aa501c4b8c4
+# github.com/grafana/grafana-api-golang-client v0.0.0-20210204123314-0aa501c4b8c4 => /Users/vardantorosyan/dev/src/grafana-api-golang-client
 ## explicit
 github.com/grafana/grafana-api-golang-client
 # github.com/hashicorp/errwrap v1.0.0
@@ -410,3 +410,4 @@ google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/emptypb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/pluginpb
+# github.com/grafana/grafana-api-golang-client => /Users/vardantorosyan/dev/src/grafana-api-golang-client
