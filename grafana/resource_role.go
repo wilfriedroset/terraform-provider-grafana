@@ -14,6 +14,8 @@ import (
 func ResourceRole() *schema.Resource {
 	return &schema.Resource{
 		Description: `
+**Note:** This resource is available only with Grafana Enterprise 8.+.
+
 * [Official documentation](https://grafana.com/docs/grafana/latest/enterprise/access-control/)
 * [HTTP API](https://grafana.com/docs/grafana/latest/http_api/access_control/)
 `,
