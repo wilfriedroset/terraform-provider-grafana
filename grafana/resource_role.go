@@ -44,10 +44,20 @@ func ResourceRole() *schema.Resource {
 				Required:    true,
 				Description: "Name of the role",
 			},
+			"display_name": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Display name of the role",
+			},
 			"description": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "Description of the role.",
+			},
+			"group": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Group that the role belongs to.",
 			},
 			"global": {
 				Type:        schema.TypeBool,
@@ -86,6 +96,8 @@ func CreateRole(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 		UID:         d.Get("uid").(string),
 		Name:        d.Get("name").(string),
 		Description: d.Get("description").(string),
+		DisplayName: d.Get("display_name").(string),
+		Group:       d.Get("group").(string),
 		Version:     int64(d.Get("version").(int)),
 		Global:      d.Get("global").(bool),
 		Permissions: permissions(d),
@@ -142,6 +154,14 @@ func ReadRole(ctx context.Context, d *schema.ResourceData, meta interface{}) dia
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	err = d.Set("group", r.Group)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	err = d.Set("display_name", r.DisplayName)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 	err = d.Set("uid", r.UID)
 	if err != nil {
 		return diag.FromErr(err)
@@ -173,15 +193,23 @@ func ReadRole(ctx context.Context, d *schema.ResourceData, meta interface{}) dia
 func UpdateRole(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*client).gapi
 
-	if d.HasChange("version") || d.HasChange("name") || d.HasChange("description") || d.HasChange("permissions") {
-		desc := ""
+	if d.HasChange("version") || d.HasChange("name") || d.HasChange("description") || d.HasChange("permissions") || d.HasChange("display_name") || d.HasChange("group") {
+		group, desc := "", ""
 		// If description is defined, use the value from the config
 		if v, ok := d.GetOk("description"); !ok {
 			desc = v.(string)
 		}
+		// If group is defined, use the value from the config, otherwise send an empty group.
+		// This ensures that the group is updated to empty when it is removed from the config.
+		if v, ok := d.GetOk("group"); !ok {
+			group = v.(string)
+		}
 		r := gapi.Role{
 			UID:         d.Id(),
 			Name:        d.Get("name").(string),
+			DisplayName: d.Get("display_name").(string),
+			Group:       group,
+			Global:      d.Get("global").(bool),
 			Description: desc,
 			Version:     int64(d.Get("version").(int)),
 			Permissions: permissions(d),

@@ -31,6 +31,12 @@ func TestAccRole(t *testing.T) {
 						"grafana_role.test", "description", "test desc",
 					),
 					resource.TestCheckResourceAttr(
+						"grafana_role.test", "display_name", "Terraform Acc Test",
+					),
+					resource.TestCheckResourceAttr(
+						"grafana_role.test", "group", "Terraform Group",
+					),
+					resource.TestCheckResourceAttr(
 						"grafana_role.test", "version", "1",
 					),
 					resource.TestCheckResourceAttr(
@@ -56,6 +62,12 @@ func TestAccRole(t *testing.T) {
 					),
 					resource.TestCheckResourceAttr(
 						"grafana_role.test", "uid", "testuid",
+					),
+					resource.TestCheckResourceAttr(
+						"grafana_role.test", "display_name", "Terraform Acc Test",
+					),
+					resource.TestCheckResourceAttr(
+						"grafana_role.test", "group", "Terraform Group",
 					),
 					resource.TestCheckResourceAttr(
 						"grafana_role.test", "global", "true",
@@ -115,7 +127,9 @@ func testAccRoleCheckDestroy(r *gapi.Role) resource.TestCheckFunc {
 const roleConfigBasic = `
 resource "grafana_role" "test" {
   name  = "terraform-acc-test"
+  display_name = "Terraform Acc Test"	
   description = "test desc"
+  group = "Terraform Group"
   version = 1
   uid = "testuid"
   global = true
@@ -125,7 +139,9 @@ resource "grafana_role" "test" {
 const roleConfigWithPermissions = `
 resource "grafana_role" "test" {
   name  = "terraform-acc-test"
+  display_name = "Terraform Acc Test"
   description = "test desc"
+  group = "Terraform Group"
   version = 2
   uid = "testuid"
   global = true
